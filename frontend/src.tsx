@@ -1,0 +1,26 @@
+import { useState } from "react";
+import { createRoot } from "react-dom/client";
+import "./style.css";
+
+type Paper = { id: string; title: string; authors: string[]; year?: number; venue?: string; citation_count: number; open_access: boolean; open_access_url?: string; url?: string; similarity_percent: number; ranking_reasons: string[]; sources: string[] };
+type Resource = { name: string; kind: string; url: string; verified: boolean; official: boolean; description: string; relevance: string; evidence?: string };
+type Result = { question: string; plan: { topic: string; queries: string[]; terms: string[] }; papers: Paper[]; resources: Resource[]; counts: { discovered: number; deduplicated: number; ranked: number }; source_status: { source: string; succeeded: boolean; count: number; error?: string }[] };
+const api = import.meta.env.VITE_API_BASE_URL || "http://localhost:8000";
+
+function App() {
+  const [question, setQuestion] = useState("Find research gaps in multimodal LLMs for medical image analysis");
+  const [result, setResult] = useState<Result>(); const [error, setError] = useState(""); const [loading, setLoading] = useState(false);
+  async function research() {
+    setLoading(true); setError("");
+    try { const r = await fetch(`${api}/api/v1/research-sessions`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ question, max_results: 20 }) }); const payload = await r.json(); if (!r.ok) throw new Error(payload.detail?.message || "Research discovery failed"); setResult(payload); }
+    catch (e) { setError(e instanceof Error ? e.message : "Unexpected error"); } finally { setLoading(false); }
+  }
+  return <main><header><span className="mark">RP</span><div><strong>ResearchPilot</strong><small>Evidence-first research discovery</small></div><span className="phase">PHASE 1 · DISCOVERY</span></header>
+  <section className="hero"><p className="eyebrow">AUTONOMOUS LITERATURE EXPLORATION</p><h1>Start with a question.<br/><em>Build the evidence base.</em></h1><p className="lead">Discover and rank scholarly literature automatically—without uploads, links, or manually assembled paper collections.</p><div className="search"><textarea value={question} onChange={e => setQuestion(e.target.value)} aria-label="Research question"/><button onClick={research} disabled={loading || question.length < 8}>{loading ? "Researching…" : "Start research →"}</button></div><p className="note">Uses Semantic Scholar + OpenAlex · Source status and ranking signals remain visible</p></section>
+  {error && <div className="error">{error}. Check the API connection or retry.</div>}
+  {loading && <section className="progress"><b>Building your candidate corpus</b><span>Understanding question ✓</span><span>Generating search strategy ✓</span><span>Searching scholarly databases…</span><span>Normalizing, deduplicating and ranking…</span></section>}
+  {result && <section className="results"><div className="result-head"><div><p className="eyebrow">RESEARCH SESSION</p><h2>{result.plan.topic}</h2></div><div className="counts"><b>{result.counts.discovered}</b><span>discovered</span><b>{result.counts.deduplicated}</b><span>unique</span><b>{result.counts.ranked}</b><span>ranked</span></div></div><div className="grid"><aside><h3>Search transparency</h3><p className="label">QUERIES</p>{result.plan.queries.map(q=><code key={q}>{q}</code>)}<p className="label">DATABASE STATUS</p>{result.source_status.map(s=><p key={s.source} className={s.succeeded ? "ok" : "bad"}>● {s.source} {s.succeeded ? `(${s.count})` : "unavailable"}</p>)}</aside><div><div className="papers-title"><h3>Ranked papers</h3><span>Explainable hybrid score</span></div>{result.papers.map((p,i)=><article className="paper" key={p.id}><div className="rank">{i+1}</div><div><h3>{p.title}</h3><p>{p.authors.slice(0,3).join(", ") || "Authors unavailable"} {p.year && `· ${p.year}`} {p.venue && `· ${p.venue}`}</p><div className="tags"><span>score {p.ranking_score.toFixed(2)}</span><span>{p.citation_count} citations</span>{p.open_access && <span className="oa">open access</span>}{p.sources.map(s=><span key={s}>{s}</span>)}</div><small>{p.ranking_reasons.join(" · ")}</small></div><a href={p.open_access_url || p.url} target="_blank" rel="noreferrer">Source ↗</a></article>)}</div></div></section>}
+  {result && <section className="resources"><p className="eyebrow">IMPLEMENTATION RESOURCES</p><h2>Repositories, datasets & stack</h2><p className="resource-intro">Resources are verified by GitHub's API, linked to paper-text dataset mentions, or point to official technology documentation.</p><div className="resource-grid">{result.resources.map(r => <article className="resource" key={`${r.kind}-${r.url}`}><div><span className="kind">{r.kind}</span>{r.official && <span className="official">official</span>}</div><h3>{r.name}</h3><p>{r.description}</p><small>{r.relevance}</small>{r.evidence && <small className="evidence">{r.evidence}</small>}<a href={r.url} target="_blank" rel="noreferrer">Open resource →</a></article>)}</div></section>}
+  <footer>ResearchPilot never treats a missing result as proof of a research gap. Gap generation begins only after evidence extraction and counter-evidence validation.</footer></main>
+}
+createRoot(document.getElementById("root")!).render(<App/>);

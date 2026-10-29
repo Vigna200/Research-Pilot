@@ -1,0 +1,11 @@
+.env
+__pycache__/
+.pytest_cache/
+.venv/
+node_modules/
+dist/
+researchpilot.db
+*.pyc
+backend/researchpilot_api.egg-info/
+frontend/.npm-cache/
+frontend/tsconfig.tsbuildinfo
